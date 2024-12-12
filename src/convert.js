@@ -46,27 +46,27 @@ function convertFeature(features, geojson, options, index) {
         }
 
     } else if (type === 'LineString') {
-        convertLine(coords, geometry, tolerance, false);
+        convertLine(coords, geometry, tolerance, false, options.customProjectXY);
 
     } else if (type === 'MultiLineString') {
         if (options.lineMetrics) {
             // explode into linestrings to be able to track metrics
             for (const line of coords) {
                 geometry = [];
-                convertLine(line, geometry, tolerance, false);
+                convertLine(line, geometry, tolerance, false, options.customProjectXY);
                 features.push(createFeature(id, 'LineString', geometry, geojson.properties));
             }
             return;
         }
-        convertLines(coords, geometry, tolerance, false);
+        convertLines(coords, geometry, tolerance, false, options.customProjectXY);
 
     } else if (type === 'Polygon') {
-        convertLines(coords, geometry, tolerance, true);
+        convertLines(coords, geometry, tolerance, true, options.customProjectXY);
 
     } else if (type === 'MultiPolygon') {
         for (const polygon of coords) {
             const newPolygon = [];
-            convertLines(polygon, newPolygon, tolerance, true);
+            convertLines(polygon, newPolygon, tolerance, true, options.customProjectXY);
             geometry.push(newPolygon);
         }
     } else if (type === 'GeometryCollection') {
@@ -89,13 +89,21 @@ function convertPoint(coords, out) {
     out.push(projectX(coords[0]), projectY(coords[1]), 0);
 }
 
-function convertLine(ring, out, tolerance, isPolygon) {
+function convertLine(ring, out, tolerance, isPolygon, customProjectXY) {
     let x0, y0;
     let size = 0;
 
     for (let j = 0; j < ring.length; j++) {
-        const x = projectX(ring[j][0]);
-        const y = projectY(ring[j][1]);
+        let x,y;
+        if (customProjectXY) {
+            const projectionResult = customProjectXY(ring[j][0], ring[j][1]);
+            x = projectionResult.x;
+            y = projectionResult.y;
+        }
+        else {
+            x = projectX(ring[j][0]);
+            y = projectY(ring[j][1]);
+        }
 
         out.push(x, y, 0);
 
@@ -120,19 +128,22 @@ function convertLine(ring, out, tolerance, isPolygon) {
     out.end = out.size;
 }
 
-function convertLines(rings, out, tolerance, isPolygon) {
+// param: input geometry, output geometry, tolerance for geometry, is polygon
+function convertLines(rings, out, tolerance, isPolygon, customProjectXY) {
     for (let i = 0; i < rings.length; i++) {
         const geom = [];
-        convertLine(rings[i], geom, tolerance, isPolygon);
+        convertLine(rings[i], geom, tolerance, isPolygon, customProjectXY);
         out.push(geom);
     }
 }
 
 function projectX(x) {
+    // mapping von lat (4326) auf 0..1. x ist im wertebereich -180..180
     return x / 360 + 0.5;
 }
 
 function projectY(y) {
+    // mapping von lon (4326) auf 0..1. x ist im wertebereich -90..90 (?)
     const sin = Math.sin(y * Math.PI / 180);
     const y2 = 0.5 - 0.25 * Math.log((1 + sin) / (1 - sin)) / Math.PI;
     return y2 < 0 ? 0 : y2 > 1 ? 1 : y2;

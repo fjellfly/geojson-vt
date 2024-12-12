@@ -15,7 +15,8 @@ const defaultOptions = {
     lineMetrics: false,     // whether to calculate line metrics
     promoteId: null,        // name of a feature property to be promoted to feature.id
     generateId: false,      // whether to generate feature ids. Cannot be used with promoteId
-    debug: 0                // logging level (0, 1 or 2)
+    customProjectXY: null,  // Use custom extent to project coordinates to 0..1 range
+    debug: 2                // logging level (0, 1 or 2)
 };
 
 class GeoJSONVT {
